@@ -1,0 +1,74 @@
+---
+- name: Capture scan start timestamp
+  ansible.builtin.set_fact:
+    sbom_scan_started: "{{ ansible_date_time.iso8601 }}"
+
+- name: Record scan metadata
+  ansible.builtin.copy:
+    content: "{{ scan_metadata_initial | to_nice_json }}"
+    dest: "{{ host_output_dir }}/scan-metadata.json"
+    owner: root
+    group: root
+    mode: "0640"
+  vars:
+    scan_metadata_initial:
+      hostname: "{{ inventory_hostname }}"
+      ansible_host: "{{ ansible_host | default(inventory_hostname) }}"
+      scan_path: "{{ sbom_scan_path }}"
+      scan_started: "{{ sbom_scan_started }}"
+      os: "{{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+      kernel: "{{ ansible_facts['kernel'] }}"
+      architecture: "{{ ansible_facts['architecture'] }}"
+
+- name: Generate SBOM with Syft (Syft JSON and CycloneDX)
+  ansible.builtin.command: >
+    syft scan dir:{{ sbom_scan_path }}
+    -o json={{ host_output_dir }}/sbom.syft.json
+    -o cyclonedx-json={{ host_output_dir }}/sbom.cyclonedx.json
+    --quiet
+  register: syft_scan
+  changed_when: true
+
+- name: Scan SBOM for CVEs with Grype
+  ansible.builtin.command: >
+    grype sbom:{{ host_output_dir }}/sbom.syft.json
+    -o json
+  register: grype_scan
+  changed_when: true
+
+- name: Write Grype CVE report JSON
+  ansible.builtin.copy:
+    content: "{{ grype_scan.stdout }}"
+    dest: "{{ host_output_dir }}/grype-report.json"
+    owner: root
+    group: root
+    mode: "0640"
+
+- name: Load Syft SBOM for artifact count
+  ansible.builtin.slurp:
+    src: "{{ host_output_dir }}/sbom.syft.json"
+  register: sbom_slurp
+
+- name: Update scan metadata with tool versions and completion time
+  ansible.builtin.copy:
+    content: "{{ scan_metadata_merged | to_nice_json }}"
+    dest: "{{ host_output_dir }}/scan-metadata.json"
+    owner: root
+    group: root
+    mode: "0640"
+  vars:
+    sbom_data: "{{ sbom_slurp.content | b64decode | from_json }}"
+    grype_data: "{{ grype_scan.stdout | from_json }}"
+    scan_metadata_merged:
+      hostname: "{{ inventory_hostname }}"
+      ansible_host: "{{ ansible_host | default(inventory_hostname) }}"
+      scan_path: "{{ sbom_scan_path }}"
+      scan_started: "{{ sbom_scan_started }}"
+      scan_completed: "{{ ansible_date_time.iso8601 }}"
+      os: "{{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+      kernel: "{{ ansible_facts['kernel'] }}"
+      architecture: "{{ ansible_facts['architecture'] }}"
+      syft_version: "{{ syft_installed_version | default('unknown') }}"
+      grype_version: "{{ grype_installed_version | default('unknown') }}"
+      sbom_artifact_count: "{{ sbom_data.artifacts | default([]) | length }}"
+      vulnerability_match_count: "{{ grype_data.matches | default([]) | length }}"

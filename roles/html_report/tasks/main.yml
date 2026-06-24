@@ -1,0 +1,37 @@
+---
+- name: Load Grype report for HTML rendering
+  ansible.builtin.slurp:
+    src: "{{ host_output_dir }}/grype-report.json"
+  register: grype_report_slurp
+
+- name: Load scan metadata for HTML rendering
+  ansible.builtin.slurp:
+    src: "{{ host_output_dir }}/scan-metadata.json"
+  register: scan_metadata_html_slurp
+
+- name: Build severity summary from Grype matches
+  ansible.builtin.set_fact:
+    grype_report: "{{ grype_report_slurp.content | b64decode | from_json }}"
+    sbom_metadata: "{{ scan_metadata_html_slurp.content | b64decode | from_json }}"
+    severity_counts: "{{ severity_counts_result }}"
+  vars:
+    matches: "{{ (grype_report_slurp.content | b64decode | from_json).matches | default([]) }}"
+    severity_counts_result: >-
+      {{
+        {
+          'Critical': matches | selectattr('vulnerability.severity', 'equalto', 'Critical') | list | length,
+          'High': matches | selectattr('vulnerability.severity', 'equalto', 'High') | list | length,
+          'Medium': matches | selectattr('vulnerability.severity', 'equalto', 'Medium') | list | length,
+          'Low': matches | selectattr('vulnerability.severity', 'equalto', 'Low') | list | length,
+          'Negligible': matches | selectattr('vulnerability.severity', 'equalto', 'Negligible') | list | length,
+          'Unknown': matches | rejectattr('vulnerability.severity', 'in', ['Critical', 'High', 'Medium', 'Low', 'Negligible']) | list | length
+        }
+      }}
+
+- name: Render HTML vulnerability report on managed host
+  ansible.builtin.template:
+    src: report.html.j2
+    dest: "{{ host_output_dir }}/report.html"
+    owner: root
+    group: root
+    mode: "0644"

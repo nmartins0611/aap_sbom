@@ -1,0 +1,14 @@
+{
+    "ansible_host": "192.168.1.197",
+    "architecture": "x86_64",
+    "grype_version": "Application:         grype\nVersion:             0.114.0\nBuildDate:           2026-06-05T16:10:04Z\nGitCommit:           ef8e65adb2dec760f1f923e635da4c7696d3c295\nGitDescription:      v0.114.0\nPlatform:            linux/amd64\nGoVersion:           go1.26.3\nCompiler:            gc\nSyft Version:        v1.45.1\nSupported DB Schema: 6",
+    "hostname": "rhel2",
+    "kernel": "5.14.0-611.5.1.el9_7.x86_64",
+    "os": "RedHat 9.7",
+    "sbom_artifact_count": 3178,
+    "scan_completed": "2026-06-24T16:19:15Z",
+    "scan_path": "/usr",
+    "scan_started": "2026-06-24T16:19:15Z",
+    "syft_version": "Application:   syft\nVersion:       1.45.1\nBuildDate:     2026-06-05T14:21:36Z\nGitCommit:     d4496b05aab2d489a5c2ec606755b657229b8925\nGitDescription: v1.45.1\nPlatform:      linux/amd64\nGoVersion:     go1.26.3\nCompiler:      gc\nSchemaVersion: 16.1.3",
+    "vulnerability_match_count": 9165
+}

@@ -1,0 +1,23 @@
+---
+# Remote directory where scan artifacts are written on each host.
+sbom_remote_output_dir: /var/lib/sbom-scan
+
+# Filesystem path to scan (Syft dir: target).
+sbom_scan_path: /
+
+# Install/update the Grype vulnerability database before scanning.
+grype_db_update: true
+
+# Pin tool versions (empty string installs latest).
+syft_version: ""
+grype_version: ""
+
+# Where the control node stores fetched artifacts and generated HTML.
+sbom_local_artifact_root: "{{ playbook_dir }}/artifacts"
+
+# Official Anchore install script endpoints.
+syft_install_url: https://get.anchore.io/syft
+grype_install_url: https://get.anchore.io/grype
+
+syft_install_dir: /usr/local/bin
+grype_install_dir: /usr/local/bin

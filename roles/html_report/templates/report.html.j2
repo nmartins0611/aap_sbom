@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SBOM &amp; CVE Report — {{ sbom_metadata.hostname | default('unknown') }}</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #f8f9fa;
+      --text: #1a1a1a;
+      --muted: #6c757d;
+      --border: #dee2e6;
+      --critical: #dc3545;
+      --high: #fd7e14;
+      --medium: #ffc107;
+      --low: #ffe066;
+      --negligible: #28a745;
+      --unknown: #adb5bd;
+      --accent: #ee0000;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Red Hat Text", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+      border-bottom: 3px solid var(--accent);
+      padding: 2rem;
+      color: var(--text);
+    }
+    header h1 { margin: 0 0 0.5rem; font-size: 1.75rem; }
+    header p { margin: 0; color: var(--muted); }
+    main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+    section { margin-bottom: 2rem; }
+    h2 {
+      font-size: 1.25rem;
+      margin: 0 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+    .card .label { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .value { font-size: 1.5rem; font-weight: 600; margin-top: 0.25rem; }
+    .meta-table { width: 100%; border-collapse: collapse; }
+    .meta-table th, .meta-table td {
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .meta-table th { color: var(--muted); width: 220px; font-weight: 500; }
+    .severity-summary { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .severity-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .severity-pill .count { font-weight: 700; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #111;
+    }
+    .badge-Critical { background: var(--critical); }
+    .badge-High { background: var(--high); }
+    .badge-Medium { background: var(--medium); }
+    .badge-Low { background: var(--low); }
+    .badge-Negligible { background: var(--negligible); }
+    .badge-Unknown { background: var(--unknown); color: #fff; }
+    table.vuln-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    table.vuln-table th {
+      background: var(--panel);
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+    }
+    table.vuln-table th, table.vuln-table td {
+      border: 1px solid var(--border);
+      padding: 0.65rem 0.75rem;
+      vertical-align: top;
+    }
+    table.vuln-table tbody tr:nth-child(even) { background: #f8f9fa; }
+    table.vuln-table tbody tr:hover { background: #fff3f3; }
+    .pkg-name { font-weight: 600; }
+    .pkg-version { color: var(--muted); font-size: 0.85rem; }
+    .cve-id { font-family: ui-monospace, monospace; font-weight: 600; }
+    .description { color: var(--muted); font-size: 0.85rem; margin-top: 0.35rem; max-width: 420px; }
+    .fix-version { font-family: ui-monospace, monospace; font-size: 0.85rem; }
+    a { color: #0066cc; }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .empty-state {
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+      background: var(--panel);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SBOM &amp; CVE Security Report</h1>
+    <p>{{ sbom_metadata.hostname | default('unknown') }} — scanned {{ sbom_metadata.scan_path | default('/') }}</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Scan Summary</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="label">SBOM Artifacts</div>
+          <div class="value">{{ sbom_metadata.sbom_artifact_count | default(0) }}</div>
+        </div>
+        <div class="card">
+          <div class="label">CVE Matches</div>
+          <div class="value">{{ sbom_metadata.vulnerability_match_count | default(0) }}</div>
+        </div>
+        <div class="card">
+          <div class="label">Critical</div>
+          <div class="value" style="color: var(--critical)">{{ severity_counts.Critical | default(0) }}</div>
+        </div>
+        <div class="card">
+          <div class="label">High</div>
+          <div class="value" style="color: var(--high)">{{ severity_counts.High | default(0) }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Host Metadata</h2>
+      <table class="meta-table">
+        <tr><th>Hostname</th><td>{{ sbom_metadata.hostname | default('—') }}</td></tr>
+        <tr><th>Address</th><td>{{ sbom_metadata.ansible_host | default('—') }}</td></tr>
+        <tr><th>Operating System</th><td>{{ sbom_metadata.os | default('—') }}</td></tr>
+        <tr><th>Kernel</th><td>{{ sbom_metadata.kernel | default('—') }}</td></tr>
+        <tr><th>Architecture</th><td>{{ sbom_metadata.architecture | default('—') }}</td></tr>
+        <tr><th>Scan Path</th><td><code>{{ sbom_metadata.scan_path | default('/') }}</code></td></tr>
+        <tr><th>Scan Started</th><td>{{ sbom_metadata.scan_started | default('—') }}</td></tr>
+        <tr><th>Scan Completed</th><td>{{ sbom_metadata.scan_completed | default('—') }}</td></tr>
+        <tr><th>Syft Version</th><td><code>{{ sbom_metadata.syft_version | default('—') }}</code></td></tr>
+        <tr><th>Grype Version</th><td><code>{{ sbom_metadata.grype_version | default('—') }}</code></td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Severity Breakdown</h2>
+      <div class="severity-summary">
+        {% for level, count in severity_counts.items() %}
+        <span class="severity-pill">
+          <span class="badge badge-{{ level }}">{{ level }}</span>
+          <span class="count">{{ count }}</span>
+        </span>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section>
+      <h2>Vulnerability Details</h2>
+      {% set matches = grype_report.matches | default([]) %}
+      {% if matches | length == 0 %}
+      <div class="empty-state">No vulnerabilities matched for this scan target.</div>
+      {% else %}
+      <table class="vuln-table">
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>CVE</th>
+            <th>Package</th>
+            <th>Installed</th>
+            <th>Fixed In</th>
+            <th>Links</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for level in ['Critical', 'High', 'Medium', 'Low', 'Negligible'] %}
+          {% for match in matches if match.vulnerability.severity == level %}
+          {% set vuln = match.vulnerability %}
+          {% set artifact = match.artifact %}
+          <tr>
+            <td><span class="badge badge-{{ level }}">{{ level }}</span></td>
+            <td class="cve-id">{{ vuln.id | default('—') }}</td>
+            <td>
+              <div class="pkg-name">{{ artifact.name | default('—') }}</div>
+              <div class="pkg-version">{{ artifact.type | default('') }}</div>
+              {% if vuln.description is defined and vuln.description | length > 0 %}
+              <div class="description">{{ vuln.description | truncate(240, True, '…') }}</div>
+              {% endif %}
+            </td>
+            <td class="fix-version">{{ artifact.version | default('—') }}</td>
+            <td class="fix-version">
+              {% if vuln.fix is defined and vuln.fix.versions is defined and vuln.fix.versions | length > 0 %}
+                {{ vuln.fix.versions | join(', ') }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% if vuln.urls is defined %}
+              {% for url in vuln.urls %}
+              <div><a href="{{ url }}" target="_blank" rel="noopener">{{ url | truncate(48, True, '…') }}</a></div>
+              {% endfor %}
+              {% else %}
+              —
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% endfor %}
+          {% for match in matches if match.vulnerability.severity not in ['Critical', 'High', 'Medium', 'Low', 'Negligible'] %}
+          {% set vuln = match.vulnerability %}
+          {% set artifact = match.artifact %}
+          {% set level = vuln.severity | default('Unknown') %}
+          <tr>
+            <td><span class="badge badge-Unknown">{{ level }}</span></td>
+            <td class="cve-id">{{ vuln.id | default('—') }}</td>
+            <td>
+              <div class="pkg-name">{{ artifact.name | default('—') }}</div>
+              <div class="pkg-version">{{ artifact.type | default('') }}</div>
+            </td>
+            <td class="fix-version">{{ artifact.version | default('—') }}</td>
+            <td class="fix-version">—</td>
+            <td>—</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Artifacts</h2>
+      <table class="meta-table">
+        <tr><th>SBOM (Syft JSON)</th><td><code>sbom.syft.json</code></td></tr>
+        <tr><th>SBOM (CycloneDX)</th><td><code>sbom.cyclonedx.json</code></td></tr>
+        <tr><th>CVE Report (Grype JSON)</th><td><code>grype-report.json</code></td></tr>
+        <tr><th>Scan Metadata</th><td><code>scan-metadata.json</code></td></tr>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    Generated by Ansible using <a href="https://github.com/anchore/syft">Syft</a> and
+    <a href="https://github.com/anchore/grype">Grype</a>.
+  </footer>
+</body>
+</html>

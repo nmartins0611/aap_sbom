@@ -1,0 +1,51 @@
+---
+- name: Install Syft and Grype, scan hosts, and generate SBOM/CVE reports
+  hosts: rhel_hosts
+  gather_facts: true
+  vars_files:
+    - ../inventory/secrets.yml
+  vars:
+    host_output_dir: "{{ sbom_remote_output_dir }}/{{ inventory_hostname }}"
+    host_local_dir: "{{ sbom_local_artifact_root }}/{{ inventory_hostname }}"
+
+  pre_tasks:
+    - name: Validate target OS family
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'RedHat'
+        fail_msg: "This playbook supports RHEL-family hosts only."
+
+    - name: Ensure remote artifact directory exists
+      ansible.builtin.file:
+        path: "{{ host_output_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+  roles:
+    - role: syft_grype
+    - role: sbom_scan
+    - role: html_report
+
+  post_tasks:
+    - name: Ensure local artifact directory exists on control node
+      ansible.builtin.file:
+        path: "{{ host_local_dir }}"
+        state: directory
+        mode: "0750"
+      delegate_to: localhost
+      become: false
+      run_once: false
+
+    - name: Fetch scan artifacts from managed host to control node
+      ansible.builtin.fetch:
+        src: "{{ host_output_dir }}/{{ item }}"
+        dest: "{{ host_local_dir }}/"
+        flat: true
+      loop:
+        - sbom.syft.json
+        - sbom.cyclonedx.json
+        - grype-report.json
+        - scan-metadata.json
+        - report.html
